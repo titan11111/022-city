@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>町長シミュレーション</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 10px;
+            font-family: "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow-x: hidden;
+        }
+
+        #game-container {
+            width: 100%;
+            max-width: 480px;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        h1 {
+            font-size: 1.8em;
+            margin: 0 0 20px 0;
+            color: #333;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 目的表示 */
+        #objective {
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+            padding: 15px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #333;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        #speak-btn {
+            margin-top: 10px;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 20px;
+            background: #ff6b6b;
+            color: white;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        #speak-btn:hover {
+            background: #ee5a52;
+            transform: translateY(-1px);
+        }
+
+        /* ステータスバー */
+        #stats-container {
+            margin-bottom: 15px;
+        }
+
+        .stat-bar {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .stat-label {
+            width: 60px;
+            text-align: left;
+            font-weight: bold;
+        }
+
+        .progress-bar {
+            flex: 1;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            margin: 0 10px;
+            position: relative;
+            overflow: hidden;
+            border: 2px solid #ccc;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 8px;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            background: linear-gradient(90deg, #ff6b6b, #4ecdc4);
+        }
+
+        .stat-value {
+            width: 30px;
+            text-align: right;
+            font-weight: bold;
+            color: #333;
+        }
+
+        /* ターン表示 */
+        #turn-display {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #555;
+            background: linear-gradient(90deg, #ffeaa7, #fab1a0);
+            padding: 8px 16px;
+            border-radius: 20px;
+            display: inline-block;
+        }
+
+        /* 町民の反応 */
+        #citizen-reaction {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            font-size: 13px;
+            color: #333;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        /* 街の表示 */
+        #town-container {
+            margin: 20px 0;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            background: linear-gradient(180deg, #87CEEB, #E0F6FF);
+            position: relative;
+        }
+
+        #townSvg {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .town-level {
+            transition: opacity 1s ease-in-out;
+        }
+
+        /* 人間のアニメーション */
+        .person {
+            animation: walk 3s linear infinite;
+        }
+
+        @keyframes walk {
+            0% { transform: translateX(-10px); }
+            50% { transform: translateX(10px); }
+            100% { transform: translateX(-10px); }
+        }
+
+        .person-fast {
+            animation: walkFast 2s linear infinite;
+        }
+
+        @keyframes walkFast {
+            0% { transform: translateX(-15px); }
+            25% { transform: translateX(15px); }
+            50% { transform: translateX(-15px); }
+            75% { transform: translateX(15px); }
+            100% { transform: translateX(-15px); }
+        }
+
+        /* 選択肢ボタン */
+        .choice {
+            display: block;
+            margin: 12px 0;
+            padding: 15px 20px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            width: 100%;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            transform: translateY(0);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .choice::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .choice:hover::before,
+        .choice:active::before {
+            left: 100%;
+        }
+
+        .choice:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .choice:active {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+        }
+
+        /* 効果予測表示 */
+        .effect-preview {
+            font-size: 11px;
+            margin-top: 5px;
+            opacity: 0.9;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .effect-item {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .effect-positive { color: #90EE90; }
+        .effect-negative { color: #FFB6C1; }
+
+        /* エンディング */
+        #end {
+            font-size: 1.4em;
+            margin-top: 20px;
+            font-weight: bold;
+            padding: 20px;
+            border-radius: 15px;
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            color: #333;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        /* リスタートボタン */
+        #restart-btn {
+            margin-top: 20px;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            color: #333;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        #restart-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        /* アニメーション */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        @keyframes bounce {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-5px);
+            }
+        }
+
+        /* レスポンシブ対応 */
+        @media (max-width: 480px) {
+            body {
+                padding: 5px;
+            }
+            
+            #game-container {
+                padding: 15px;
+                border-radius: 15px;
+            }
+            
+            h1 {
+                font-size: 1.5em;
+            }
+            
+            .choice {
+                font-size: 14px;
+                padding: 12px 15px;
+            }
+            
+            .stat-label {
+                width: 50px;
+                font-size: 12px;
+            }
+            
+            .stat-value {
+                width: 25px;
+                font-size: 12px;
+            }
+            
+            #turn-display {
+                font-size: 14px;
+                padding: 6px 12px;
+            }
+        }
+
+        @media (max-width: 360px) {
+            #game-container {
+                padding: 10px;
+            }
+            
+            h1 {
+                font-size: 1.3em;
+            }
+            
+            .choice {
+                font-size: 13px;
+                padding: 10px 12px;
+                margin: 8px 0;
+            }
+        }
+
+        /* iOS Safari対応 */
+        @supports (-webkit-touch-callout: none) {
+            body {
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            .choice {
+                -webkit-appearance: none;
+                -webkit-tap-highlight-color: transparent;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <h1>🌆 町長シミュレーション</h1>
+        
+        <!-- 目的表示 -->
+        <div id="objective">
+            <div><strong>🎯 あなたの使命</strong></div>
+            <div>10ターンで理想の街を作ろう！経済・環境・教育のバランスを考えて、住民が幸せに暮らせる街づくりを目指してください。</div>
+            <button id="speak-btn">🔊 音声で聞く</button>
+        </div>
+        
+        <!-- ステータス表示 -->
+        <div id="stats-container">
+            <div class="stat-bar">
+                <span class="stat-label">💰 経済</span>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="eco-bar"></div>
+                    <span class="stat-value" id="eco-value">0</span>
+                </div>
+            </div>
+            <div class="stat-bar">
+                <span class="stat-label">🌿 環境</span>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="env-bar"></div>
+                    <span class="stat-value" id="env-value">0</span>
+                </div>
+            </div>
+            <div class="stat-bar">
+                <span class="stat-label">📚 教育</span>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="edu-bar"></div>
+                    <span class="stat-value" id="edu-value">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ターン表示 -->
+        <div id="turn-display">ターン: <span id="turn-number">1</span>/10</div>
+
+        <!-- 町民の反応 -->
+        <div id="citizen-reaction">ゲームを開始してください</div>
+
+        <!-- 街の表示（SVG） -->
+        <div id="town-container">
+            <svg id="townSvg" viewBox="0 0 600 300">
+                <!-- 背景のグラデーション -->
+                <defs>
+                    <linearGradient id="skyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" style="stop-color:#87CEEB"/>
+                        <stop offset="100%" style="stop-color:#E0F6FF"/>
+                    </linearGradient>
+                    <linearGradient id="groundGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" style="stop-color:#90EE90"/>
+                        <stop offset="100%" style="stop-color:#228B22"/>
+                    </linearGradient>
+                </defs>
+                
+                <!-- 空と地面 -->
+                <rect width="600" height="220" fill="url(#skyGradient)" />
+                <rect y="220" width="600" height="80" fill="url(#groundGradient)" />
+                
+                <!-- 太陽 -->
+                <circle cx="50" cy="50" r="25" fill="#FFD700" opacity="0.8"/>
+                
+                <!-- 雲 -->
+                <ellipse cx="150" cy="60" rx="30" ry="15" fill="white" opacity="0.7"/>
+                <ellipse cx="450" cy="80" rx="40" ry="20" fill="white" opacity="0.6"/>
+
+                <!-- 村レベル（1-15ポイント） -->
+                <g id="village" class="town-level">
+                    <!-- 小さな家1 -->
+                    <rect x="80" y="180" width="40" height="40" fill="#8B4513" stroke="#654321" stroke-width="2"/>
+                    <polygon points="80,180 100,160 120,180" fill="#DC143C"/>
+                    <rect x="90" y="200" width="8" height="15" fill="#4169E1"/>
+                    <rect x="105" y="190" width="8" height="8" fill="#87CEEB"/>
+                    
+                    <!-- 小さな家2 -->
+                    <rect x="200" y="185" width="35" height="35" fill="#CD853F" stroke="#8B7355" stroke-width="2"/>
+                    <polygon points="200,185 217.5,168 235,185" fill="#B22222"/>
+                    <rect x="208" y="200" width="6" height="12" fill="#228B22"/>
+                    
+                    <!-- 小さな家3 -->
+                    <rect x="320" y="175" width="45" height="45" fill="#DEB887" stroke="#D2B48C" stroke-width="2"/>
+                    <polygon points="320,175 342.5,155 365,175" fill="#A0522D"/>
+                    <rect x="330" y="195" width="8" height="18" fill="#654321"/>
+                    <rect x="345" y="185" width="10" height="10" fill="#F0E68C"/>
+                    
+                    <!-- 木 -->
+                    <rect x="150" y="200" width="6" height="20" fill="#8B4513"/>
+                    <circle cx="153" cy="195" r="12" fill="#228B22"/>
+                    <rect x="400" y="195" width="8" height="25" fill="#8B4513"/>
+                    <circle cx="404" cy="190" r="15" fill="#32CD32"/>
+                    
+                    <!-- 村の人々 -->
+                    <g id="village-people">
+                        <circle class="person" cx="130" cy="210" r="3" fill="#FFB6C1"/>
+                        <rect class="person" x="128" y="213" width="4" height="7" fill="#4169E1"/>
+                        
+                        <circle class="person" cx="270" cy="215" r="3" fill="#DEB887"/>
+                        <rect class="person" x="268" y="218" width="4" height="7" fill="#DC143C"/>
+                    </g>
+                </g>
+
+                <!-- 町レベル（16-35ポイント） -->
+                <g id="town" class="town-level" style="opacity: 0;">
+                    <!-- 中層ビル1 -->
+                    <rect x="70" y="120" width="50" height="100" fill="#708090" stroke="#2F4F4F" stroke-width="2"/>
+                    <rect x="75" y="130" width="8" height="8" fill="#FFD700"/>
+                    <rect x="85" y="130" width="8" height="8" fill="#FFD700"/>
+                    <rect x="75" y="145" width="8" height="8" fill="#FFD700"/>
+                    <rect x="85" y="145" width="8" height="8" fill="#FFD700"/>
+                    
+                    <!-- 中層ビル2 -->
+                    <rect x="180" y="100" width="60" height="120" fill="#4682B4" stroke="#191970" stroke-width="2"/>
+                    <rect x="190" y="110" width="10" height="10" fill="#00BFFF"/>
+                    <rect x="205" y="110" width="10" height="10" fill="#00BFFF"/>
+                    <rect x="190" y="130" width="10" height="10" fill="#00BFFF"/>
+                    <rect x="205" y="130" width="10" height="10" fill="#00BFFF"/>
+                    
+                    <!-- 学校 -->
+                    <rect x="300" y="140" width="80" height="80" fill="#FF6347" stroke="#DC143C" stroke-width="2"/>
+                    <polygon points="300,140 340,110 380,140" fill="#8B0000"/>
+                    <rect x="330" y="160" width="20" height="25" fill="#654321"/>
+                    <text x="340" y="135" font-family="Arial" font-size="12" fill="white" text-anchor="middle">学校</text>
+                    
+                    <!-- 公園 -->
+                    <rect x="450" y="180" width="60" height="40" fill="#90EE90" stroke="#228B22" stroke-width="2"/>
+                    <circle cx="470" cy="195" r="8" fill="#32CD32"/>
+                    <circle cx="490" cy="205" r="6" fill="#228B22"/>
+                    
+                    <!-- 町の人々 -->
+                    <g id="town-people">
+                        <circle class="person" cx="100" cy="215" r="3" fill="#FFB6C1"/>
+                        <rect class="person" x="98" y="218" width="4" height="7" fill="#4169E1"/>
+                        
+                        <circle class="person" cx="150" cy="210" r="3" fill="#DEB887"/>
+                        <rect class="person" x="148" y="213" width="4" height="7" fill="#DC143C"/>
+                        
+                        <circle class="person-fast" cx="250" cy="215" r="3" fill="#98FB98"/>
+                        <rect class="person-fast" x="248" y="218" width="4" height="7" fill="#228B22"/>
+                        
+                        <circle class="person" cx="350" cy="213" r="3" fill="#F0E68C"/>
+                        <rect class="person" x="348" y="216" width="4" height="7" fill="#8B4513"/>
+                        
+                        <circle class="person-fast" cx="480" cy="212" r="3" fill="#DDA0DD"/>
+                        <rect class="person-fast" x="478" y="215" width="4" height="7" fill="#9370DB"/>
+                    </g>
+                </g>
+
+                <!-- 都市レベル（36ポイント以上） -->
+                <g id="city" class="town-level" style="opacity: 0;">
+                    <!-- 超高層ビル1 -->
+                    <rect x="60" y="40" width="60" height="180" fill="#2F4F4F" stroke="#000000" stroke-width="3"/>
+                    <rect x="70" y="50" width="12" height="12" fill="#00FFFF"/>
+                    <rect x="90" y="50" width="12" height="12" fill="#00FFFF"/>
+                    <rect x="70" y="70" width="12" height="12" fill="#00FFFF"/>
+                    <rect x="90" y="70" width="12" height="12" fill="#00FFFF"/>
+                    <rect x="70" y="90" width="12" height="12" fill="#00FFFF"/>
+                    <rect x="90" y="90" width="12" height="12" fill="#00FFFF"/>
+                    
+                    <!-- 超高層ビル2 -->
+                    <rect x="170" y="20" width="70" height="200" fill="#1E90FF" stroke="#0000CD" stroke-width="3"/>
+                    <rect x="180" y="35" width="15" height="15" fill="#FFFF00"/>
+                    <rect x="200" y="35" width="15" height="15" fill="#FFFF00"/>
+                    <rect x="180" y="60" width="15" height="15" fill="#FFFF00"/>
+                    <rect x="200" y="60" width="15" height="15" fill="#FFFF00"/>
+                    
+                    <!-- タワー -->
+                    <rect x="290" y="30" width="40" height="190" fill="#FF1493" stroke="#8B008B" stroke-width="3"/>
+                    <circle cx="310" cy="25" r="8" fill="#FF0000"/>
+                    <rect x="305" y="15" width="10" height="15" fill="#696969"/>
+                    
+                    <!-- 未来的ビル -->
+                    <polygon points="380,220 380,60 420,40 460,60 460,220" fill="#9370DB" stroke="#4B0082" stroke-width="3"/>
+                    <rect x="390" y="80" width="20" height="20" fill="#00FF7F"/>
+                    <rect x="415" y="100" width="20" height="20" fill="#00FF7F"/>
+                    
+                    <!-- 空港/ヘリポート -->
+                    <rect x="500" y="180" width="80" height="40" fill="#696969" stroke="#000000" stroke-width="2"/>
+                    <text x="540" y="205" font-family="Arial" font-size="14" fill="white" text-anchor="middle">H</text>
+                    
+                    <!-- 都市の人々 -->
+                    <g id="city-people">
+                        <circle class="person-fast" cx="90" cy="215" r="3" fill="#FFB6C1"/>
+                        <rect class="person-fast" x="88" y="218" width="4" height="7" fill="#4169E1"/>
+                        
+                        <circle class="person" cx="130" cy="212" r="3" fill="#DEB887"/>
+                        <rect class="person" x="128" y="215" width="4" height="7" fill="#DC143C"/>
+                        
+                        <circle class="person-fast" cx="170" cy="214" r="3" fill="#98FB98"/>
+                        <rect class="person-fast" x="168" y="217" width="4" height="7" fill="#228B22"/>
+                        
+                        <circle class="person" cx="220" cy="216" r="3" fill="#F0E68C"/>
+                        <rect class="person" x="218" y="219" width="4" height="7" fill="#8B4513"/>
+                        
+                        <circle class="person-fast" cx="270" cy="213" r="3" fill="#DDA0DD"/>
+                        <rect class="person-fast" x="268" y="216" width="4" height="7" fill="#9370DB"/>
+                        
+                        <circle class="person" cx="350" cy="215" r="3" fill="#FFA07A"/>
+                        <rect class="person" x="348" y="218" width="4" height="7" fill="#FF4500"/>
+                        
+                        <circle class="person-fast" cx="420" cy="211" r="3" fill="#87CEEB"/>
+                        <rect class="person-fast" x="418" y="214" width="4" height="7" fill="#4682B4"/>
+                        
+                        <circle class="person" cx="480" cy="217" r="3" fill="#F5DEB3"/>
+                        <rect class="person" x="478" y="220" width="4" height="7" fill="#D2691E"/>
+                        
+                        <circle class="person-fast" cx="530" cy="214" r="3" fill="#FFE4E1"/>
+                        <rect class="person-fast" x="528" y="217" width="4" height="7" fill="#CD5C5C"/>
+                    </g>
+                </g>
+            </svg>
+        </div>
+
+        <!-- 選択肢 -->
+        <div id="choices"></div>
+        
+        <!-- 結果表示 -->
+        <div id="end"></div>
+        
+        <!-- リスタートボタン -->
+        <button id="restart-btn" style="display: none;">もう一度プレイ</button>
+    </div>
+
+    <script>
+        // ゲーム状態の管理
+        let gameState = {
+            eco: 0,
+            env: 0, 
+            edu: 0,
+            turn: 0,
+            maxTurns: 10,
+            audioCtx: null,
+            isBgmStarted: false,
+            speechSynthesis: null
+        };
+
+        // 10ターン分の選択肢データ
+        const choicesData = [
+            [
+                { text: "🏭 工場を誘致する", eco: +4, env: -2, edu: 0, desc: "経済を大きく発展させます" },
+                { text: "🌳 公園を整備する", eco: -1, env: +4, edu: 0, desc: "環境を大幅に改善します" },
+                { text: "📖 図書館を建てる", eco: -2, env: 0, edu: +4, desc: "教育レベルを向上させます" }
+            ],
+            [
+                { text: "🛣️ 高速道路を建設", eco: +5, env: -3, edu: 0, desc: "物流が活発になります" },
+                { text: "🦋 森林保護区を設置", eco: -1, env: +5, edu: 0, desc: "自然環境を守ります" },
+                { text: "🏫 大学を誘致する", eco: -2, env: 0, edu: +5, desc: "高等教育を充実させます" }
+            ],
+            [
+                { text: "🌐 国際企業を誘致", eco: +6, env: -3, edu: +1, desc: "グローバル化を進めます" },
+                { text: "♻️ リサイクル条例制定", eco: -1, env: +6, edu: 0, desc: "循環型社会を目指します" },
+                { text: "🔬 研究特区を設立", eco: -2, env: 0, edu: +6, desc: "科学技術を発展させます" }
+            ],
+            [
+                { text: "💰 法人税を引き下げ", eco: +5, env: -1, edu: 0, desc: "企業活動を活性化します" },
+                { text: "⚡ 再生エネルギー推進", eco: -2, env: +5, edu: 0, desc: "クリーンエネルギーを導入" },
+                { text: "👨‍🏫 教育改革を実施", eco: -2, env: 0, edu: +5, desc: "教育システムを革新します" }
+            ],
+            [
+                { text: "🏢 ビジネス特区を創設", eco: +6, env: -2, edu: +1, desc: "商業地区を拡大します" },
+                { text: "🌊 海洋保護計画", eco: -2, env: +6, edu: 0, desc: "海の環境を守ります" },
+                { text: "💻 IT教育を強化", eco: -1, env: 0, edu: +6, desc: "デジタル人材を育成します" }
+            ],
+            [
+                { text: "🚢 貿易港を整備", eco: +6, env: -3, edu: +1, desc: "国際貿易を拡大します" },
+                { text: "🌱 都市緑化プロジェクト", eco: -1, env: +6, edu: 0, desc: "緑豊かな街づくり" },
+                { text: "🧪 科学館を建設", eco: -2, env: 0, edu: +6, desc: "科学教育を推進します" }
+            ],
+            [
+                { text: "🏪 商業施設を拡充", eco: +7, env: -3, edu: +1, desc: "消費経済を活性化" },
+                { text: "🐾 野生動物保護条例", eco: -2, env: +7, edu: 0, desc: "生物多様性を守ります" },
+                { text: "🎨 芸術学校を設立", eco: -1, env: 0, edu: +7, desc: "文化・芸術を振興します" }
+            ],
+            [
+                { text: "🎯 観光産業を育成", eco: +6, env: -2, edu: +2, desc: "観光収入を増やします" },
+                { text: "🌿 カーボンニュートラル宣言", eco: -3, env: +7, edu: 0, desc: "脱炭素社会を実現" },
+                { text: "🌍 国際交流を促進", eco: -1, env: 0, edu: +7, desc: "国際的な人材を育成" }
+            ],
+            [
+                { text: "🚀 宇宙産業を誘致", eco: +8, env: -2, edu: +2, desc: "最先端技術を導入" },
+                { text: "🌺 完全循環型都市計画", eco: -3, env: +8, edu: 0, desc: "持続可能な社会を構築" },
+                { text: "🏆 オリンピック招致", eco: -2, env: 0, edu: +8, desc: "世界レベルの教育・文化" }
+            ],
+            [
+                { text: "💎 金融センター設立", eco: +10, env: -3, edu: +1, desc: "世界的な金融ハブに" },
+                { text: "🌍 地球環境サミット開催", eco: -3, env: +10, edu: 0, desc: "環境のリーダー都市に" },
+                { text: "🎓 世界最高学府を設立", eco: -2, env: 0, edu: +10, desc: "教育の世界的拠点に" }
+            ]
+        ];
+
+        // 町民の反応データ
+        const citizenReactions = {
+            eco: {
+                positive: [
+                    "👨‍💼 市民A「仕事が増えて嬉しいです！」",
+                    "👩‍💼 企業家B「投資しやすい環境ですね」",
+                    "🏪 商店主C「お客さんが増えました！」",
+                    "💼 サラリーマンD「給料が上がりそうです」",
+                    "🏢 会社員E「新しいビジネスチャンスが！」"
+                ],
+                negative: [
+                    "😟 市民F「生活費が高くなって困ります」",
+                    "💸 主婦G「物価上昇が心配です」",
+                    "😰 年金生活者H「年金だけでは厳しい」"
+                ]
+            },
+            env: {
+                positive: [
+                    "🌿 環境活動家「素晴らしい判断です！」",
+                    "👶 若いママ「子供に綺麗な環境を残せます」",
+                    "🐦 鳥類研究者「生態系が豊かになりますね」",
+                    "🚴‍♂️ サイクリスト「空気が美味しい！」",
+                    "🌱 園芸愛好家「緑が増えて嬉しいです」"
+                ],
+                negative: [
+                    "😤 工場長「規制が厳しすぎます」",
+                    "🚗 運送業者「コストが上がって困る」",
+                    "😮‍💨 建設業者「工事が制限されて...」"
+                ]
+            },
+            edu: {
+                positive: [
+                    "👨‍🏫 教師「教育環境が向上しました！」",
+                    "👩‍🎓 学生「勉強できる場所が増えた！」",
+                    "📚 司書「図書館利用者が増えています」",
+                    "🧑‍🔬 研究者「研究施設が充実しました」",
+                    "👨‍👩‍👧‍👦 保護者「子供の将来が明るい！」"
+                ],
+                negative: [
+                    "💰 納税者「教育費の負担が重い」",
+                    "😟 高齢者「若者ばかり優遇されて...」",
+                    "💼 経営者「人材育成に時間がかかる」"
+                ]
+            },
+            balance: [
+                "🎯 政治評論家「バランスの取れた政策ですね」",
+                "📊 市政アナリスト「住民満足度が高いです」",
+                "🏛️ 議員A「理想的な街づくりです」",
+                "👥 市民代表「みんなが納得できる政策」"
+            ],
+            advisor: [
+                "🤵 秘書官「市長、素晴らしい判断です」",
+                "👨‍💼 財政課長「予算配分が適切ですね」",
+                "👩‍💼 企画部長「長期的な視点で良いでしょう」",
+                "🏛️ 副市長「市民の支持率が上がりそうです」"
+            ]
+        };
+
+        // 音声読み上げ機能
+        function speakObjective() {
+            if ('speechSynthesis' in window) {
+                const text = "あなたの使命は、10ターンで理想の街を作ることです。経済、環境、教育のバランスを考えて、住民が幸せに暮らせる街づくりを目指してください。";
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'ja-JP';
+                utterance.rate = 0.9;
+                utterance.pitch = 1.0;
+                speechSynthesis.speak(utterance);
+            } else {
+                alert("このブラウザは音声読み上げに対応していません");
+            }
+        }
+
+        // ゲーム初期化
+        function initGame() {
+            gameState = {
+                eco: 0,
+                env: 0,
+                edu: 0,
+                turn: 0,
+                maxTurns: 10,
+                audioCtx: null,
+                isBgmStarted: false
+            };
+            
+            document.getElementById("end").textContent = "";
+            document.getElementById("end").style.display = "none";
+            document.getElementById("restart-btn").style.display = "none";
+            document.body.style.background = "linear-gradient(135deg, #667eea 0%, #764ba2 100%)";
+            document.getElementById("citizen-reaction").textContent = "ゲームを開始してください";
+            
+            updateDisplay();
+            showChoices();
+            
+            // BGM開始（ユーザーインタラクション後）
+            window.addEventListener("click", startBGM, { once: true });
+            window.addEventListener("touchstart", startBGM, { once: true });
+        }
+
+        // 表示更新
+        function updateDisplay() {
+            // ステータス値更新
+            document.getElementById("eco-value").textContent = gameState.eco;
+            document.getElementById("env-value").textContent = gameState.env;
+            document.getElementById("edu-value").textContent = gameState.edu;
+            
+            // プログレスバー更新（最大値60で計算）
+            const maxValue = 60;
+            document.getElementById("eco-bar").style.width = `${Math.min((gameState.eco / maxValue) * 100, 100)}%`;
+            document.getElementById("env-bar").style.width = `${Math.min((gameState.env / maxValue) * 100, 100)}%`;
+            document.getElementById("edu-bar").style.width = `${Math.min((gameState.edu / maxValue) * 100, 100)}%`;
+            
+            // プログレスバーの色を動的に変更
+            updateProgressBarColors();
+            
+            // ターン数更新
+            document.getElementById("turn-number").textContent = gameState.turn + 1;
+            
+            // 街の発展レベル更新
+            updateTownLevel();
+        }
+
+        // プログレスバーの色を更新
+        function updateProgressBarColors() {
+            const ecoBar = document.getElementById("eco-bar");
+            const envBar = document.getElementById("env-bar");
+            const eduBar = document.getElementById("edu-bar");
+            
+            // 経済バー（金色系）
+            ecoBar.style.background = `linear-gradient(90deg, #FFD700, #FFA500)`;
+            
+            // 環境バー（緑色系）
+            envBar.style.background = `linear-gradient(90deg, #90EE90, #32CD32)`;
+            
+            // 教育バー（青色系）
+            eduBar.style.background = `linear-gradient(90deg, #87CEEB, #4169E1)`;
+        }
+
+        // 街の発展レベル表示切替
+        function updateTownLevel() {
+            const total = gameState.eco + gameState.env + gameState.edu;
+            
+            const village = document.getElementById("village");
+            const town = document.getElementById("town");
+            const city = document.getElementById("city");
+            
+            // アニメーション付きで切り替え
+            if (total < 15) {
+                // 村レベル
+                village.style.opacity = "1";
+                town.style.opacity = "0";
+                city.style.opacity = "0";
+            } else if (total < 35) {
+                // 町レベル
+                village.style.opacity = "0";
+                town.style.opacity = "1";
+                city.style.opacity = "0";
+                
+                // 発展アニメーション
+                town.style.animation = "pulse 1s ease-in-out";
+                setTimeout(() => {
+                    town.style.animation = "";
+                }, 1000);
+            } else {
+                // 都市レベル
+                village.style.opacity = "0";
+                town.style.opacity = "0";
+                city.style.opacity = "1";
+                
+                // 発展アニメーション
+                city.style.animation = "pulse 1.5s ease-in-out";
+                setTimeout(() => {
+                    city.style.animation = "";
+                }, 1500);
+            }
+        }
+
+        // 町民の反応を表示
+        function showCitizenReaction(choice) {
+            const reactionDiv = document.getElementById("citizen-reaction");
+            let reaction = "";
+            
+            // 選択の影響に基づいて反応を決定
+            if (Math.abs(choice.eco) >= Math.abs(choice.env) && Math.abs(choice.eco) >= Math.abs(choice.edu)) {
+                // 経済に最も影響
+                if (choice.eco > 0) {
+                    reaction = citizenReactions.eco.positive[Math.floor(Math.random() * citizenReactions.eco.positive.length)];
+                } else {
+                    reaction = citizenReactions.eco.negative[Math.floor(Math.random() * citizenReactions.eco.negative.length)];
+                }
+            } else if (Math.abs(choice.env) >= Math.abs(choice.eco) && Math.abs(choice.env) >= Math.abs(choice.edu)) {
+                // 環境に最も影響
+                if (choice.env > 0) {
+                    reaction = citizenReactions.env.positive[Math.floor(Math.random() * citizenReactions.env.positive.length)];
+                } else {
+                    reaction = citizenReactions.env.negative[Math.floor(Math.random() * citizenReactions.env.negative.length)];
+                }
+            } else if (choice.edu !== 0) {
+                // 教育に影響
+                if (choice.edu > 0) {
+                    reaction = citizenReactions.edu.positive[Math.floor(Math.random() * citizenReactions.edu.positive.length)];
+                } else {
+                    reaction = citizenReactions.edu.negative[Math.floor(Math.random() * citizenReactions.edu.negative.length)];
+                }
+            } else {
+                // バランス型またはアドバイザー
+                const reactionType = Math.random() < 0.5 ? 'balance' : 'advisor';
+                reaction = citizenReactions[reactionType][Math.floor(Math.random() * citizenReactions[reactionType].length)];
+            }
+            
+            reactionDiv.textContent = reaction;
+            reactionDiv.style.animation = "none";
+            setTimeout(() => {
+                reactionDiv.style.animation = "fadeIn 0.5s ease-out";
+            }, 10);
+        }
+
+        // 選択肢表示
+        function showChoices() {
+            const container = document.getElementById("choices");
+            container.innerHTML = "";
+            
+            if (gameState.turn >= gameState.maxTurns) {
+                endGame();
+                return;
+            }
+            
+            const currentChoices = choicesData[gameState.turn];
+            
+            currentChoices.forEach((choice, index) => {
+                const btn = document.createElement("button");
+                btn.className = "choice";
+                
+                // 効果予測を作成
+                const effects = [];
+                if (choice.eco !== 0) {
+                    effects.push(`<span class="effect-item ${choice.eco > 0 ? 'effect-positive' : 'effect-negative'}">💰${choice.eco > 0 ? '+' : ''}${choice.eco}</span>`);
+                }
+                if (choice.env !== 0) {
+                    effects.push(`<span class="effect-item ${choice.env > 0 ? 'effect-positive' : 'effect-negative'}">🌿${choice.env > 0 ? '+' : ''}${choice.env}</span>`);
+                }
+                if (choice.edu !== 0) {
+                    effects.push(`<span class="effect-item ${choice.edu > 0 ? 'effect-positive' : 'effect-negative'}">📚${choice.edu > 0 ? '+' : ''}${choice.edu}</span>`);
+                }
+                
+                btn.innerHTML = `
+                    <div style="font-size: 16px; margin-bottom: 5px;">${choice.text}</div>
+                    <div style="font-size: 12px; opacity: 0.9; margin-bottom: 5px;">${choice.desc}</div>
+                    <div class="effect-preview">${effects.join('')}</div>
+                `;
+                
+                btn.onclick = () => makeChoice(choice);
+                
+                // アニメーション付きで表示
+                btn.style.opacity = "0";
+                btn.style.transform = "translateY(20px)";
+                container.appendChild(btn);
+                
+                setTimeout(() => {
+                    btn.style.transition = "all 0.5s cubic-bezier(0.4, 0, 0.2, 1)";
+                    btn.style.opacity = "1";
+                    btn.style.transform = "translateY(0)";
+                }, index * 100);
+            });
+        }
+
+        // 選択肢を選んだ時の処理
+        function makeChoice(choice) {
+            // ステータス更新
+            gameState.eco = Math.max(0, gameState.eco + choice.eco);
+            gameState.env = Math.max(0, gameState.env + choice.env);
+            gameState.edu = Math.max(0, gameState.edu + choice.edu);
+            gameState.turn++;
+            
+            // 効果音再生
+            playSelectSound();
+            
+            // 町民の反応を表示
+            showCitizenReaction(choice);
+            
+            // 選択ボタンを無効化
+            const choices = document.querySelectorAll(".choice");
+            choices.forEach(btn => {
+                btn.style.pointerEvents = "none";
+                btn.style.opacity = "0.6";
+            });
+            
+            // 少し待ってから次のターンへ
+            setTimeout(() => {
+                updateDisplay();
+                showChoices();
+            }, 1500);
+        }
+
+        // ゲーム終了処理
+        function endGame() {
+            document.getElementById("choices").innerHTML = "";
+            
+            const endDiv = document.getElementById("end");
+            const restartBtn = document.getElementById("restart-btn");
+            
+            let endingText = "";
+            let backgroundGradient = "";
+            
+            // 最も高いステータスで結末を決定
+            if (gameState.eco > gameState.env && gameState.eco > gameState.edu) {
+                endingText = "🏙️ 経済大国として世界に名を轟かせました！\n巨大な商業都市が誕生し、多くの企業が集まる経済の中心地となりました。";
+                backgroundGradient = "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)";
+                document.getElementById("citizen-reaction").textContent = "💼 市民「経済発展で生活が豊かになりました！」";
+            } else if (gameState.env > gameState.eco && gameState.env > gameState.edu) {
+                endingText = "🌿 環境先進都市として未来のモデルとなりました！\n緑豊かで持続可能な社会を実現し、世界中から注目される環境都市になりました。";
+                backgroundGradient = "linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)";
+                document.getElementById("citizen-reaction").textContent = "🌱 市民「綺麗な空気と自然に囲まれて幸せです！」";
+            } else if (gameState.edu > gameState.eco && gameState.edu > gameState.env) {
+                endingText = "📚 教育立国として世界最高の学術都市が完成しました！\n優秀な人材を輩出し続け、知識と文化の世界的な拠点となりました。";
+                backgroundGradient = "linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)";
+                document.getElementById("citizen-reaction").textContent = "🎓 市民「子供たちに最高の教育を与えられました！」";
+            } else {
+                // バランス型
+                endingText = "⚖️ バランスの取れた理想的な都市が完成しました！\n経済・環境・教育すべてが調和した、住みやすい街になりました。";
+                backgroundGradient = "linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)";
+                document.getElementById("citizen-reaction").textContent = "😊 市民「すべてがバランス良くて住みやすい街です！」";
+            }
+            
+            // 総合評価
+            const totalScore = gameState.eco + gameState.env + gameState.edu;
+            let rank = "";
+            if (totalScore >= 50) {
+                rank = "S級都市！🏆";
+            } else if (totalScore >= 40) {
+                rank = "A級都市！🥇";
+            } else if (totalScore >= 30) {
+                rank = "B級都市！🥈";
+            } else if (totalScore >= 20) {
+                rank = "C級都市！🥉";
+            } else {
+                rank = "発展途上の街🌱";
+            }
+            
+            endDiv.innerHTML = `
+                <div style="margin-bottom: 15px; font-size: 1.2em;">${rank}</div>
+                <div style="margin-bottom: 15px;">${endingText}</div>
+                <div style="font-size: 14px; margin-top: 10px;">
+                    最終スコア: ${totalScore}点<br>
+                    💰経済: ${gameState.eco} | 🌿環境: ${gameState.env} | 📚教育: ${gameState.edu}
+                </div>
+            `;
+            
+            endDiv.style.display = "block";
+            restartBtn.style.display = "inline-block";
+            
+            // 背景色変更
+            document.body.style.background = backgroundGradient;
+            
+            // 終了音効果
+            playEndSound();
+        }
+
+        // BGM開始
+        function startBGM() {
+            if (gameState.isBgmStarted) return;
+            gameState.isBgmStarted = true;
+            
+            try {
+                gameState.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                playBackgroundMusic();
+            } catch (e) {
+                console.log("Audio context not supported");
+            }
+        }
+
+        // 背景音楽（アルペジオ）
+        function playBackgroundMusic() {
+            if (!gameState.audioCtx) return;
+            
+            const chords = [
+                [261.63, 329.63, 392.00], // C major
+                [220.00, 277.18, 329.63], // A minor
+                [246.94, 311.13, 369.99], // B diminished
+                [196.00, 246.94, 293.66], // G major
+            ];
+            
+            let chordIndex = 0;
+            let startTime = gameState.audioCtx.currentTime;
+            
+            function scheduleChord(time, frequencies) {
+                frequencies.forEach((freq, i) => {
+                    const osc = gameState.audioCtx.createOscillator();
+                    const gain = gameState.audioCtx.createGain();
+                    
+                    osc.type = "sine";
+                    osc.frequency.value = freq;
+                    
+                    gain.gain.setValueAtTime(0, time);
+                    gain.gain.linearRampToValueAtTime(0.05, time + 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.001, time + 1.5);
+                    
+                    osc.connect(gain).connect(gameState.audioCtx.destination);
+                    osc.start(time + i * 0.15);
+                    osc.stop(time + i * 0.15 + 1.5);
+                });
+            }
+            
+            function loop() {
+                if (gameState.audioCtx && gameState.audioCtx.state === 'running') {
+                    scheduleChord(startTime, chords[chordIndex]);
+                    chordIndex = (chordIndex + 1) % chords.length;
+                    startTime += 3.0;
+                    setTimeout(loop, 3000);
+                }
+            }
+            
+            loop();
+        }
+
+        // 選択音効果
+        function playSelectSound() {
+            if (!gameState.audioCtx) return;
+            
+            try {
+                const osc = gameState.audioCtx.createOscillator();
+                const gain = gameState.audioCtx.createGain();
+                
+                osc.type = "sine";
+                osc.frequency.setValueAtTime(523.25, gameState.audioCtx.currentTime); // C5
+                osc.frequency.exponentialRampToValueAtTime(659.25, gameState.audioCtx.currentTime + 0.1); // E5
+                
+                gain.gain.setValueAtTime(0.2, gameState.audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, gameState.audioCtx.currentTime + 0.3);
+                
+                osc.connect(gain).connect(gameState.audioCtx.destination);
+                osc.start();
+                osc.stop(gameState.audioCtx.currentTime + 0.3);
+            } catch (e) {
+                console.log("Sound effect failed");
+            }
+        }
+
+        // 終了音効果
+        function playEndSound() {
+            if (!gameState.audioCtx) return;
+            
+            try {
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                
+                notes.forEach((freq, i) => {
+                    setTimeout(() => {
+                        const osc = gameState.audioCtx.createOscillator();
+                        const gain = gameState.audioCtx.createGain();
+                        
+                        osc.type = "sine";
+                        osc.frequency.value = freq;
+                        
+                        gain.gain.setValueAtTime(0.15, gameState.audioCtx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.001, gameState.audioCtx.currentTime + 0.8);
+                        
+                        osc.connect(gain).connect(gameState.audioCtx.destination);
+                        osc.start();
+                        osc.stop(gameState.audioCtx.currentTime + 0.8);
+                    }, i * 200);
+                });
+            } catch (e) {
+                console.log("End sound effect failed");
+            }
+        }
+
+        // リスタート機能
+        function restartGame() {
+            initGame();
+        }
+
+        // イベントリスナー設定
+        document.addEventListener("DOMContentLoaded", function() {
+            initGame();
+            
+            // 音声読み上げボタン
+            document.getElementById("speak-btn").addEventListener("click", speakObjective);
+            
+            // リスタートボタンのイベント
+            document.getElementById("restart-btn").addEventListener("click", restartGame);
+            
+            // iOS Safari対応：ダブルタップズーム防止
+            let lastTouchEnd = 0;
+            document.addEventListener('touchend', function (event) {
+                const now = (new Date()).getTime();
+                if (now - lastTouchEnd <= 300) {
+                    event.preventDefault();
+                }
+                lastTouchEnd = now;
+            }, false);
+            
+            // スクロール防止（ゲーム画面固定）
+            document.addEventListener('touchmove', function(e) {
+                e.preventDefault();
+            }, { passive: false });
+            
+            // コンテキストメニュー無効化
+            document.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+            });
+        });
+
+        // ウィンドウサイズ変更時の対応
+        window.addEventListener('resize', function() {
+            // 100vh対策（モバイルブラウザのアドレスバー問題）
+            const vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--vh', `${vh}px`);
+        });
+
+        // 初期化時のビューポート高さ設定
+        const vh = window.innerHeight * 0.01;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+    </script>
+</body>
+</html>
